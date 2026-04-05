@@ -1,0 +1,1622 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' https://cdn.socket.io; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self' wss://votre-backend.runway.com https://votre-backend.runway.com;">
+    <title>BSIC AI - Assistant Intelligent</title>
+    <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
+    <style>
+        /* =============================================
+           RESET & BASE
+        ============================================= */
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #0f172a 0%, #1e3a5f 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 0.5rem;
+        }
+        @media (min-width: 640px) { body { padding: 1rem; } }
+        .sr-only {
+            position: absolute; width: 1px; height: 1px;
+            padding: 0; margin: -1px; overflow: hidden;
+            clip: rect(0,0,0,0); white-space: nowrap; border: 0;
+        }
+
+        /* =============================================
+           LAYOUT
+        ============================================= */
+        #app {
+            width: 100%;
+            max-width: 28rem;
+            background: #ffffff;
+            box-shadow: 0 32px 64px rgba(0,0,0,0.4);
+            border-radius: 1.5rem;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+            height: 90vh;
+            border: 1px solid #e2e8f0;
+        }
+        @media (min-width: 640px) { #app { height: 700px; } }
+
+        /* =============================================
+           HEADER
+        ============================================= */
+        .app-header {
+            background: linear-gradient(135deg, #0f172a, #1e3a8a);
+            padding: 1rem;
+            color: #fff;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-shrink: 0;
+        }
+        .header-left { display: flex; align-items: center; gap: 0.75rem; }
+        .header-icon {
+            background: #2563eb;
+            padding: 0.5rem;
+            border-radius: 0.75rem;
+            display: flex; align-items: center; justify-content: center;
+            box-shadow: 0 0 12px rgba(37,99,235,0.5);
+        }
+        .header-title { font-size: 0.875rem; font-weight: 700; letter-spacing: -0.025em; }
+        .header-subtitle {
+            font-size: 0.6rem;
+            color: #93c5fd;
+            display: flex; align-items: center; gap: 0.25rem;
+            text-transform: uppercase; font-weight: 700; letter-spacing: 0.1em;
+            margin-top: 2px;
+        }
+        .status-dot {
+            width: 6px; height: 6px;
+            background: #4ade80; border-radius: 50%;
+            animation: pulse 2s ease-in-out infinite;
+        }
+        @keyframes pulse { 0%,100%{opacity:1;transform:scale(1)} 50%{opacity:0.6;transform:scale(0.9)} }
+
+        /* Badge NLP actif */
+        .nlp-badge {
+            font-size: 0.55rem; font-weight: 800;
+            background: rgba(99,102,241,0.3);
+            border: 1px solid rgba(99,102,241,0.5);
+            color: #a5b4fc;
+            padding: 2px 7px; border-radius: 9999px;
+            text-transform: uppercase; letter-spacing: 0.05em;
+            margin-left: 0.5rem;
+        }
+        .header-right { display: flex; align-items: center; gap: 0.5rem; }
+        .lang-btn {
+            font-size: 0.6875rem; font-weight: 900;
+            border: 1px solid rgba(255,255,255,0.2);
+            padding: 0.25rem 0.625rem; border-radius: 9999px;
+            cursor: pointer; background: transparent; color: white;
+            transition: background-color 0.15s;
+        }
+        .lang-btn:hover { background: rgba(255,255,255,0.1); }
+
+        /* =============================================
+           INDICATEUR DE CONFIANCE
+        ============================================= */
+        #confidence-bar {
+            background: #f8fafc;
+            border-bottom: 1px solid #f1f5f9;
+            padding: 6px 14px;
+            display: flex; align-items: center; gap: 8px;
+            font-size: 0.65rem; color: #64748b; font-weight: 600;
+            flex-shrink: 0;
+            min-height: 28px;
+            transition: all 0.3s;
+        }
+        .conf-label { white-space: nowrap; }
+        .conf-track {
+            flex: 1; height: 4px;
+            background: #e2e8f0; border-radius: 9999px; overflow: hidden;
+        }
+        .conf-fill {
+            height: 100%; border-radius: 9999px;
+            transition: width 0.4s ease, background-color 0.4s;
+            background: #22c55e;
+        }
+        .conf-score { font-weight: 800; min-width: 2.5rem; text-align: right; }
+
+        /* =============================================
+           MÉMOIRE CONTEXTUELLE (pill)
+        ============================================= */
+        #context-pill {
+            display: none;
+            background: #eff6ff;
+            border-bottom: 1px solid #dbeafe;
+            padding: 5px 14px;
+            font-size: 0.65rem; color: #3b82f6; font-weight: 600;
+            align-items: center; gap: 6px;
+            flex-shrink: 0;
+        }
+        #context-pill.visible { display: flex; }
+        .ctx-icon { font-size: 0.75rem; }
+        .ctx-clear {
+            margin-left: auto; cursor: pointer;
+            color: #93c5fd; font-size: 0.6rem;
+            background: none; border: none; font-weight: 800;
+            padding: 2px 6px; border-radius: 9999px;
+            transition: background 0.15s;
+        }
+        .ctx-clear:hover { background: #dbeafe; }
+
+        /* =============================================
+           ZONE CHAT
+        ============================================= */
+        #chat-container {
+            flex: 1; overflow-y: auto; padding: 1rem;
+            display: flex; flex-direction: column; gap: 1rem;
+            background: #f8fafc;
+            scroll-behavior: smooth;
+            -webkit-overflow-scrolling: touch;
+        }
+        #chat-container::-webkit-scrollbar { display: none; }
+        #chat-container { -ms-overflow-style: none; scrollbar-width: none; }
+
+        /* =============================================
+           BULLES
+        ============================================= */
+        .msg-row { display: flex; animation: fadeIn 0.25s ease-out forwards; }
+        .msg-row.user { justify-content: flex-end; }
+        .msg-row.bot  { justify-content: flex-start; }
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(8px); }
+            to   { opacity: 1; transform: translateY(0); }
+        }
+        .bubble {
+            max-width: 88%; padding: 0.8rem 0.9rem;
+            border-radius: 1rem; font-size: 0.84rem; line-height: 1.6;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.07);
+        }
+        .bubble.user {
+            background: linear-gradient(135deg, #2563eb, #1d4ed8);
+            color: #fff; border-bottom-right-radius: 0;
+        }
+        .bubble.bot {
+            background: #fff; color: #374151;
+            border: 1px solid #e5e7eb; border-bottom-left-radius: 0;
+        }
+        .bubble-text { white-space: pre-wrap; word-break: break-word; }
+
+        /* Typing indicator */
+        .typing-indicator { display: flex; gap: 4px; padding: 4px 2px; align-items: center; }
+        .typing-dot {
+            width: 7px; height: 7px; background: #94a3b8;
+            border-radius: 50%; animation: typingBounce 1.2s ease-in-out infinite;
+        }
+        .typing-dot:nth-child(2) { animation-delay: 0.2s; }
+        .typing-dot:nth-child(3) { animation-delay: 0.4s; }
+        @keyframes typingBounce {
+            0%,60%,100% { transform: translateY(0); }
+            30% { transform: translateY(-6px); }
+        }
+
+        /* =============================================
+           SUGGESTIONS "VOULEZ-VOUS DIRE?"
+        ============================================= */
+        .did-you-mean {
+            margin-top: 0.6rem;
+            padding-top: 0.6rem;
+            border-top: 1px solid #f3f4f6;
+        }
+        .dym-label {
+            font-size: 0.7rem; color: #6b7280; margin-bottom: 0.4rem; font-weight: 600;
+        }
+        .dym-btns { display: flex; flex-wrap: wrap; gap: 0.4rem; }
+        .dym-btn {
+            background: #f0fdf4; border: 1px solid #bbf7d0;
+            color: #15803d; padding: 0.3rem 0.65rem;
+            border-radius: 9999px; font-size: 0.68rem; font-weight: 700;
+            cursor: pointer; transition: all 0.15s;
+        }
+        .dym-btn:hover { background: #15803d; color: #fff; }
+
+        /* =============================================
+           ARBRES DE DÉCISION (menus interactifs)
+        ============================================= */
+        .decision-tree { margin-top: 0.75rem; }
+        .tree-title {
+            font-size: 0.72rem; font-weight: 700; color: #4b5563;
+            margin-bottom: 0.5rem; text-transform: uppercase; letter-spacing: 0.05em;
+        }
+        .tree-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem; }
+        .tree-btn {
+            background: #f8fafc; border: 1px solid #e2e8f0;
+            color: #374151; padding: 0.6rem 0.75rem;
+            border-radius: 0.75rem; font-size: 0.75rem; font-weight: 600;
+            cursor: pointer; text-align: left;
+            transition: all 0.15s; display: flex; align-items: center; gap: 0.4rem;
+        }
+        .tree-btn:hover { background: #eff6ff; border-color: #bfdbfe; color: #1d4ed8; }
+        .tree-btn .tree-icon { font-size: 1rem; }
+        .tree-btn .tree-label { flex: 1; }
+        .tree-btn .tree-arrow { color: #d1d5db; font-size: 0.7rem; }
+
+        /* =============================================
+           OPTIONS & SUMMARY
+        ============================================= */
+        .opts-container { 
+            margin-top: 0.8rem; 
+            display: grid; 
+            grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+            gap: 0.6rem; 
+            padding: 0.5rem;
+            background: linear-gradient(135deg, #f8fafc, #f1f5f9);
+            border-radius: 1rem;
+            border: 1px solid #e2e8f0;
+        }
+        .opt-btn {
+            background: linear-gradient(135deg, #ffffff, #f8fafc); 
+            border: 1px solid #cbd5e1; 
+            color: #475569;
+            padding: 0.6rem 1rem; 
+            border-radius: 0.75rem;
+            font-size: 0.7rem; font-weight: 700; 
+            cursor: pointer;
+            transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+            position: relative;
+            overflow: hidden;
+            text-align: center;
+            min-height: 44px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .opt-btn::before {
+            content: '';
+            position: absolute;
+            top: 0; left: 0;
+            width: 0; height: 100%;
+            background: linear-gradient(90deg, #3b82f6, #2563eb);
+            transition: width 0.3s ease;
+            z-index: 0;
+        }
+        .opt-btn:hover::before { width: 100%; }
+        .opt-btn:hover { 
+            background: linear-gradient(135deg, #3b82f6, #2563eb); 
+            color: #fff; 
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(59, 130, 246, 0.3);
+            border-color: #3b82f6;
+        }
+        .opt-btn:active { 
+            transform: translateY(0); 
+            box-shadow: 0 2px 6px rgba(59, 130, 246, 0.2);
+        }
+        .opt-btn span {
+            position: relative;
+            z-index: 1;
+        }
+        .summary-title {
+            font-weight: 700; border-bottom: 1px solid #f3f4f6;
+            padding-bottom: 0.25rem; margin-bottom: 0.5rem; color: #1e40af;
+            display: flex; align-items: center; gap: 0.5rem;
+        }
+        .summary-title::before {
+            content: '📋';
+            font-size: 1rem;
+        }
+        .summary-body { 
+            font-size: 0.75rem; 
+            display: flex; 
+            flex-direction: column; 
+            gap: 0.375rem; 
+            background: linear-gradient(135deg, #f8fafc, #f1f5f9);
+            padding: 0.75rem;
+            border-radius: 0.75rem;
+            border: 1px solid #e2e8f0;
+        }
+        .summary-field {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 0.25rem 0;
+            border-bottom: 1px solid #f1f5f9;
+        }
+        .summary-field:last-child { border-bottom: none; }
+        .summary-label {
+            font-weight: 600;
+            color: #475569;
+        }
+        .summary-value {
+            color: #1e293b;
+            font-weight: 500;
+            max-width: 60%;
+            text-align: right;
+            word-break: break-word;
+        }
+        .summary-desc {
+            background: linear-gradient(135deg, #fef3c7, #fed7aa); 
+            padding: 0.75rem; 
+            border-radius: 0.5rem;
+            margin-top: 0.5rem; 
+            font-style: italic;
+            border: 1px solid #fcd34d; 
+            color: #92400e;
+            position: relative;
+        }
+        .summary-desc::before {
+            content: '💬';
+            position: absolute;
+            top: -0.5rem;
+            left: 0.5rem;
+            background: #fef3c7;
+            padding: 0 0.25rem;
+            font-size: 0.75rem;
+        }
+        .confirm-btn {
+            width: 100%; 
+            background: linear-gradient(135deg, #10b981, #059669); 
+            color: white; 
+            padding: 0.75rem 1rem; 
+            border: none; 
+            border-radius: 0.75rem;
+            font-weight: 700; 
+            cursor: pointer;
+            margin-top: 0.75rem;
+            transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+            box-shadow: 0 2px 8px rgba(16, 185, 129, 0.2);
+            position: relative;
+            overflow: hidden;
+        }
+        .confirm-btn::before {
+            content: '';
+            position: absolute;
+            top: 0; left: -100%;
+            width: 100%; height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(255,255,255,0.2), transparent);
+            transition: left 0.5s;
+        }
+        .confirm-btn:hover::before { left: 100%; }
+        .confirm-btn:hover { 
+            transform: translateY(-1px);
+            box-shadow: 0 4px 16px rgba(16, 185, 129, 0.3);
+        }
+        .confirm-btn:active { transform: translateY(0); }
+        
+        /* Animation pour l'icône de réclamation */
+        @keyframes pulse-icon {
+            0%, 100% { transform: scale(1); opacity: 1; }
+            50% { transform: scale(1.1); opacity: 0.8; }
+        }
+
+        /* =============================================
+           FOOTER
+        ============================================= */
+        .app-footer { flex-shrink: 0; background: #fff; border-top: 1px solid #f3f4f6; }
+        .suggestion-bar {
+            padding: 0.5rem 1rem; display: flex; gap: 0.5rem;
+            overflow-x: auto; border-bottom: 1px solid #f9fafb;
+        }
+        .suggestion-bar::-webkit-scrollbar { display: none; }
+        .sug-btn-complaint {
+            flex-shrink: 0; 
+            background: linear-gradient(135deg, #fef2f2, #fee2e2); 
+            border: 1px solid #fecaca; 
+            color: #dc2626; 
+            font-size: 0.6rem; font-weight: 900;
+            padding: 0.5rem 1rem; 
+            border-radius: 9999px; 
+            cursor: pointer;
+            display: flex; align-items: center; gap: 0.4rem; 
+            text-transform: uppercase; 
+            transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+            box-shadow: 0 2px 4px rgba(220, 38, 38, 0.1);
+            position: relative;
+            overflow: hidden;
+        }
+        .sug-btn-complaint::before {
+            content: '';
+            position: absolute;
+            top: 0; left: -100%;
+            width: 100%; height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(255,255,255,0.3), transparent);
+            transition: left 0.5s;
+        }
+        .sug-btn-complaint:hover::before { left: 100%; }
+        .sug-btn-complaint:hover { 
+            background: linear-gradient(135deg, #dc2626, #b91c1c); 
+            color: #fff; 
+            transform: translateY(-1px);
+            box-shadow: 0 4px 12px rgba(220, 38, 38, 0.3);
+        }
+        .sug-btn-complaint:active { transform: translateY(0); }
+        .sug-btn {
+            flex-shrink: 0; background: #f9fafb; border: 1px solid #e5e7eb;
+            color: #6b7280; font-size: 0.6rem; font-weight: 900;
+            padding: 0.45rem 0.9rem; border-radius: 9999px; cursor: pointer;
+            display: flex; align-items: center; gap: 0.35rem; text-transform: uppercase;
+            transition: all 0.15s;
+        }
+        .sug-btn:hover { background: #0f172a; color: #fff; }
+        .input-area { padding: 0.75rem 1rem; }
+        .input-form {
+            display: flex; gap: 0.5rem; background: #f3f4f6;
+            padding: 0.375rem; border-radius: 1rem;
+            border: 1px solid #e5e7eb; transition: border-color 0.15s;
+        }
+        .input-form:focus-within { border-color: #60a5fa; background: #fff; }
+        #user-input {
+            flex: 1; background: transparent; padding: 0.5rem 0.75rem;
+            font-size: 0.875rem; outline: none; font-weight: 500;
+            color: #374151; border: none; font-family: inherit;
+        }
+        .send-btn {
+            background: linear-gradient(135deg, #2563eb, #1d4ed8);
+            color: white; padding: 0.625rem; border-radius: 0.75rem;
+            border: none; cursor: pointer;
+            box-shadow: 0 2px 8px rgba(37,99,235,0.3);
+            display: flex; align-items: center; justify-content: center;
+            transition: all 0.15s;
+        }
+        .send-btn:hover { box-shadow: 0 4px 12px rgba(37,99,235,0.4); }
+        .send-btn:active { transform: scale(0.9); }
+
+        :focus-visible { outline: 2px solid #2563eb; outline-offset: 2px; }
+        @media (prefers-reduced-motion: reduce) {
+            *, *::before, *::after { animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; }
+        }
+    </style>
+</head>
+<body>
+
+<div id="app">
+    <header class="app-header">
+        <div class="header-left">
+            <div class="header-icon">
+                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24"
+                     fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                    <path d="M6 22V4a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v18Z"/>
+                    <path d="M6 12H4a2 2 0 0 0-2 2v6a2 2 0 0 0 2 2h2"/>
+                    <path d="M18 9h2a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2h-2"/>
+                    <path d="M10 6h4"/><path d="M10 10h4"/><path d="M10 14h4"/><path d="M10 18h4"/>
+                </svg>
+            </div>
+            <div>
+                <div style="display:flex;align-items:center;">
+                    <h1 id="ui-title" class="header-title">Assistant BSIC AI</h1>
+                    <span class="nlp-badge">NLP</span>
+                </div>
+                <p class="header-subtitle">
+                    <span class="status-dot" aria-hidden="true"></span>
+                    <span id="ui-status">En ligne</span>
+                </p>
+            </div>
+        </div>
+        <div class="header-right">
+            <button id="lang-btn" class="lang-btn" aria-label="Changer de langue">
+                <span id="current-lang">FR</span>
+            </button>
+        </div>
+    </header>
+
+    <!-- Barre de confiance -->
+    <div id="confidence-bar" aria-live="polite" aria-label="Score de confiance de la réponse">
+        <span class="conf-label" id="conf-label-text">Confiance :</span>
+        <div class="conf-track"><div class="conf-fill" id="conf-fill" style="width:0%"></div></div>
+        <span class="conf-score" id="conf-score">—</span>
+    </div>
+
+    <!-- Mémoire contextuelle -->
+    <div id="context-pill" role="status">
+        <span class="ctx-icon">🧠</span>
+        <span id="ctx-text"></span>
+        <button class="ctx-clear" id="ctx-clear-btn" aria-label="Effacer le contexte">✕ oublier</button>
+    </div>
+
+    <main id="chat-container" role="log" aria-live="polite" aria-label="Conversation"></main>
+
+    <footer class="app-footer">
+        <div class="suggestion-bar" role="toolbar">
+            <button id="btn-complaint" class="sug-btn-complaint">
+                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24"
+                     fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"
+                     style="animation: pulse-icon 2s ease-in-out infinite;">
+                    <path d="M3 21h18"/>
+                    <path d="M5 21V7l2-2h10l2 2v14"/>
+                    <path d="M9 21V11h6v10"/>
+                    <circle cx="12" cy="5" r="1"/>
+                </svg>
+                <span id="btn-complaint-label">Réclamation</span>
+            </button>
+            <button id="btn-account" class="sug-btn">
+                <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24"
+                     fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                    <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/>
+                </svg>
+                <span id="btn-account-label">Compte</span>
+            </button>
+            <button id="btn-cards" class="sug-btn">💳 <span id="btn-cards-label">Cartes</span></button>
+            <button id="btn-credits" class="sug-btn">💰 <span id="btn-credits-label">Crédits</span></button>
+        </div>
+        <div class="input-area">
+            <form id="chat-form" class="input-form" novalidate>
+                <label for="user-input" class="sr-only">Votre message</label>
+                <input id="user-input" type="text" autocomplete="off" autocorrect="off"
+                       spellcheck="false" maxlength="500" aria-label="Saisir votre message">
+                <button type="submit" class="send-btn" aria-label="Envoyer">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="17" height="17" viewBox="0 0 24 24"
+                         fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                        <line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/>
+                    </svg>
+                </button>
+            </form>
+        </div>
+    </footer>
+</div>
+
+<script>
+/* ================================================================
+   ██████╗  ██████╗ ████████╗    ██████╗ ███████╗██╗ ██████╗
+   ██╔══██╗██╔═══██╗╚══██╔══╝    ██╔══██╗██╔════╝██║██╔════╝
+   ██████╔╝██║   ██║   ██║       ██████╔╝███████╗██║██║
+   ██╔══██╗██║   ██║   ██║       ██╔══██╗╚════██║██║██║
+   ██████╔╝╚██████╔╝   ██║       ██████╔╝███████║██║╚██████╗
+   ╚═════╝  ╚═════╝    ╚═╝       ╚═════╝ ╚══════╝╚═╝ ╚═════╝
+   BSIC AI — Moteur NLP local + Mémoire + Confiance + Arbres
+================================================================ */
+
+/* ================================================================
+   1. CONFIGURATION BACKEND & SÉCURITÉ
+================================================================ */
+// IMPORTANT: Remplacer par votre URL Runway en production
+const BACKEND_URL = 'https://votre-backend.runway.com';
+const WS_URL = 'wss://votre-backend.runway.com';
+
+// Variables globales pour la connexion backend
+let socket = null;
+let authToken = null;
+let sessionId = null;
+
+function sanitizeUserInput(str) {
+    if (typeof str !== 'string') return '';
+    return str.replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g, '').trim().slice(0, 500);
+}
+
+function generateTicketId() {
+    const arr = new Uint32Array(1);
+    crypto.getRandomValues(arr);
+    return 'TCK-' + ((arr[0] % 90000) + 10000);
+}
+
+/* ================================================================
+   2. CONNEXION BACKEND - WEBSOCKET & AUTH
+================================================================ */
+async function initializeBackendConnection() {
+    try {
+        // Créer session utilisateur
+        const response = await fetch(`${BACKEND_URL}/api/users/session`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                language: currentLang
+            })
+        });
+
+        if (!response.ok) {
+            throw new Error('Failed to create session');
+        }
+
+        const data = await response.json();
+        authToken = data.token;
+        sessionId = data.sessionId;
+
+        // Connecter WebSocket
+        socket = io(WS_URL, {
+            auth: {
+                token: authToken
+            }
+        });
+
+        // Écouter les événements WebSocket
+        socket.on('connect', () => {
+            console.log('Connected to backend WebSocket');
+            socket.emit('user:join', {
+                sessionId: sessionId,
+                userId: null
+            });
+        });
+
+        socket.on('chat:response', (response) => {
+            hideTyping();
+            handleBackendResponse(response);
+        });
+
+        socket.on('chat:error', (error) => {
+            hideTyping();
+            addMessage(error.message, 'bot');
+        });
+
+        socket.on('disconnect', () => {
+            console.log('Disconnected from backend WebSocket');
+        });
+
+        return true;
+    } catch (error) {
+        console.error('Backend connection failed:', error);
+        // Fallback vers mode local si backend indisponible
+        return false;
+    }
+}
+
+function handleBackendResponse(response) {
+    const { message, confidence, intent, suggestions } = response;
+    
+    updateConfidenceBar(confidence);
+    updateContextPill(intent);
+    
+    if (intent) MEMORY.push('bot', '', intent);
+    
+    // Ajouter le message du bot
+    if (suggestions && suggestions.length > 0) {
+        addMessage(message, 'bot', 'didyoumean', suggestions);
+    } else {
+        addMessage(message, 'bot');
+    }
+}
+
+async function sendMessageToBackend(message) {
+    if (!socket || !socket.connected) {
+        // Fallback vers mode local
+        return false;
+    }
+
+    try {
+        socket.emit('chat:message', {
+            message: message,
+            sessionId: sessionId,
+            language: currentLang
+        });
+        return true;
+    } catch (error) {
+        console.error('Failed to send message to backend:', error);
+        return false;
+    }
+}
+
+/* ================================================================
+   3. MOTEUR NLP LOCAL (fallback si backend indisponible)
+================================================================ */
+
+/**
+ * Calcule la distance d'édition entre deux chaînes (Levenshtein).
+ * Permet de détecter les fautes de frappe.
+ * Ex: "horaier" → "horaire" (distance 2)
+ */
+function levenshtein(a, b) {
+    const m = a.length, n = b.length;
+    const dp = Array.from({ length: m + 1 }, (_, i) => [i, ...Array(n).fill(0)]);
+    for (let j = 0; j <= n; j++) dp[0][j] = j;
+    for (let i = 1; i <= m; i++) {
+        for (let j = 1; j <= n; j++) {
+            dp[i][j] = a[i-1] === b[j-1]
+                ? dp[i-1][j-1]
+                : 1 + Math.min(dp[i-1][j], dp[i][j-1], dp[i-1][j-1]);
+        }
+    }
+    return dp[m][n];
+}
+
+/**
+ * Score de similarité normalisé entre 0 et 1.
+ * 1 = identique, 0 = totalement différent.
+ */
+function similarity(a, b) {
+    if (!a || !b) return 0;
+    const dist = levenshtein(a.toLowerCase(), b.toLowerCase());
+    return 1 - dist / Math.max(a.length, b.length);
+}
+
+/**
+ * Stemming français/anglais simplifié.
+ * Réduit les mots à leur racine pour améliorer la correspondance.
+ * Ex: "ouverture", "ouvrir", "ouvert" → "ouvr"
+ */
+function stem(word) {
+    const w = word.toLowerCase();
+    const suffixes = [
+        'ement','ements','tion','tions','ation','ations',
+        'eur','eurs','euse','euses','eux','elle','elles',
+        'ment','ments','ure','ures','age','ages',
+        'er','ir','re','oir','oire',
+        'ais','ait','aient','ions','iez',
+        'ant','ants','ante','antes',
+        'ing','tion','ed','es','s'
+    ];
+    for (const suf of suffixes) {
+        if (w.endsWith(suf) && w.length > suf.length + 3) {
+            return w.slice(0, -suf.length);
+        }
+    }
+    return w;
+}
+
+/**
+ * Tokenise et normalise une phrase.
+ * Supprime les accents, ponctuations, mots vides.
+ */
+const STOP_WORDS = new Set([
+    'le','la','les','un','une','des','de','du','et','ou','en','à','au','aux',
+    'je','tu','il','elle','nous','vous','ils','elles','mon','ton','son','ma',
+    'ta','sa','mes','tes','ses','ce','cet','cette','ces','que','qui','quoi',
+    'est','sont','suis','êtes','avoir','être','pour','par','sur','sous',
+    'avec','sans','dans','the','a','an','of','to','in','is','are','i','you',
+    'he','she','we','they','it','my','your','his','her','our','their','and',
+    'or','but','for','not','with','this','that','what','how','can','could',
+    'would','will','do','does','did','have','has','had'
+]);
+
+function tokenize(text) {
+    return text
+        .toLowerCase()
+        .normalize('NFD').replace(/[\u0300-\u036f]/g, '') // retire accents
+        .replace(/[^a-z0-9\s]/g, ' ')
+        .split(/\s+/)
+        .filter(w => w.length > 2 && !STOP_WORDS.has(w));
+}
+
+/**
+ * Score NLP d'un texte contre une liste de mots-clés.
+ * Combine correspondance exacte, stemming et Levenshtein.
+ * Retourne un score entre 0 et 1.
+ */
+function nlpScore(text, keywords) {
+    const tokens = tokenize(text);
+    if (tokens.length === 0) return 0;
+
+    let totalScore = 0;
+    let matches = 0;
+
+    for (const token of tokens) {
+        const stemToken = stem(token);
+        let bestMatch = 0;
+
+        for (const kw of keywords) {
+            const kwNorm = kw.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+            const stemKw = stem(kwNorm);
+
+            // Correspondance exacte → score max
+            if (token === kwNorm) { bestMatch = 1.0; break; }
+
+            // Correspondance après stemming → très bon
+            if (stemToken === stemKw && stemToken.length > 3) {
+                bestMatch = Math.max(bestMatch, 0.92);
+                continue;
+            }
+
+            // Sous-chaîne → bon
+            if (token.includes(kwNorm) || kwNorm.includes(token)) {
+                bestMatch = Math.max(bestMatch, 0.85);
+                continue;
+            }
+
+            // Similarité Levenshtein → acceptable si > 0.75
+            const sim = similarity(token, kwNorm);
+            if (sim > 0.75) bestMatch = Math.max(bestMatch, sim * 0.9);
+        }
+
+        if (bestMatch > 0.5) {
+            totalScore += bestMatch;
+            matches++;
+        }
+    }
+
+    if (matches === 0) return 0;
+    // Bonus si plusieurs tokens correspondent (phrase plus précise)
+    const coverageBonus = Math.min(matches / tokens.length, 1) * 0.15;
+    return Math.min(totalScore / Math.max(tokens.length, 1) + coverageBonus, 1);
+}
+
+/* ================================================================
+   3. MÉMOIRE CONVERSATIONNELLE
+================================================================ */
+const MEMORY = {
+    history: [],          // [{role, text, intent, timestamp}]
+    currentTopic: null,   // Dernier sujet détecté
+    lastIntent: null,     // Dernière intention résolue
+    userName: null,       // Prénom si mentionné
+
+    push(role, text, intent = null) {
+        this.history.push({ role, text, intent, timestamp: Date.now() });
+        if (intent) {
+            this.lastIntent = intent;
+            this.currentTopic = intent;
+        }
+        // Garde seulement les 20 derniers échanges en mémoire
+        if (this.history.length > 20) this.history.shift();
+    },
+
+    getContext() {
+        // Cherche le dernier sujet significatif dans les 6 derniers messages
+        const recent = this.history.slice(-6);
+        for (let i = recent.length - 1; i >= 0; i--) {
+            if (recent[i].intent && recent[i].role === 'bot') return recent[i].intent;
+        }
+        return null;
+    },
+
+    clear() {
+        this.currentTopic = null;
+        this.lastIntent = null;
+        this.history = [];
+        this.userName = null;
+    },
+
+    /**
+     * Détecte si le message est une question de suivi contextuel.
+     * Ex: "c'est combien ?", "et pour ça ?", "plus d'infos"
+     */
+    isFollowUp(text) {
+        const followUpPatterns = [
+            /^(et|mais|alors|donc|aussi|sinon|par contre|et si|pour)/,
+            /^(c'est|c est|ca|ça|cela|il|ce|les|la|le)\s/,
+            /\b(plus d.infos?|en savoir plus|détails?|details?|more|tell me more)\b/,
+            /^(comment|combien|quand|où|pourquoi|qui|quel|quelle|quels|quelles)\b/,
+            /^(ok|oui|yes|d'accord|parfait|super|merci|et)\b/,
+        ];
+        return followUpPatterns.some(p => p.test(text.toLowerCase().trim()));
+    }
+};
+
+/* ================================================================
+   4. CONTENU MÉTIER CENTRALISÉ
+================================================================ */
+const CONTENT = {
+    fr: {
+        cartes: {
+            intro: "Nos cartes bancaires BSIC :",
+            items: [
+                { icon: "💳", name: "Visa Classique", price: "5 000 FCFA/an", desc: "Paiements et retraits mondiaux" },
+                { icon: "⭐", name: "Visa Gold", price: "10 000 FCFA/an", desc: "Limites élevées + assurance voyage" },
+                { icon: "👑", name: "Visa Platinum", price: "25 000 FCFA/an", desc: "Services premium + conciergerie" },
+                { icon: "🌐", name: "Carte Virtuelle", price: "Gratuite", desc: "Achats en ligne sécurisés" },
+            ]
+        },
+        credits: {
+            menu: "Quel type de crédit vous intéresse ?",
+            types: [
+                { icon: "👤", key: "pretPerso",   label: "Prêt Personnel",    sub: "100K – 5M FCFA" },
+                { icon: "🏠", key: "pretImmo",    label: "Crédit Immobilier", sub: "5 – 25 ans" },
+                { icon: "🛒", key: "pretConso",   label: "Crédit Conso",      sub: "50K – 2M FCFA" },
+                { icon: "🏢", key: "pretBusiness",label: "Crédit Business",   sub: "Sur mesure" },
+            ]
+        },
+        pretPerso:    "Prêt Personnel BSIC Bank :\n\nConditions :\n• Minimum 21 ans\n• Revenus stables (50 000 FCFA+/mois)\n• Bon historique de crédit\n• CNI + justificatifs de revenus\n\nTaux : 8% – 12% selon profil\nDurée : 6 mois à 5 ans\nMontant : 100 000 – 5 000 000 FCFA\n\nRéponse sous 48h.",
+        pretImmo:     "Crédit Immobilier BSIC Bank :\n\nProcédure :\n1. Pré-qualification (48h)\n2. Dépôt du dossier complet\n3. Étude du dossier (5–7 jours)\n4. Accord et déblocage des fonds\n\nGaranties requises :\n• Apport personnel 20–30%\n• Hypothèque sur le bien\n• Assurance emprunteur obligatoire\n\nTaux : 6% – 9% fixe\nDurée : 5 à 25 ans",
+        pretConso:    "Crédit Consommation BSIC Bank :\n\n• Montant : 50 000 – 2 000 000 FCFA\n• Sans justificatif d'utilisation\n• Durée : 3 mois à 4 ans\n• Mensualités fixes\n• Remboursement anticipé possible\n\nTaux : 9% – 15%\nRéponse sous 24h",
+        pretBusiness: "Crédit Business BSIC Bank :\n\n• Solutions sur mesure pour PME\n• Financement équipements, fonds de roulement\n• Montant selon dossier\n• Taux préférentiels avec domiciliation\n\nContactez notre service entreprises :\n📞 20-25-30-40 poste 2",
+        horaires:     "Horaires d'ouverture BSIC Bank :\n\n• Lundi – Vendredi : 8h00 – 16h30\n• Samedi : 8h00 – 12h00\n• Dimanche et jours fériés : Fermé",
+        agences:      "Nos agences BSIC Bank :\n\n📍 Siège : Plateau, Avenue Botreau Roussel\n📍 Cocody : Marché de Cocody, rue des Jardins\n📍 Yopougon : Carrefour SIDECI\n📍 Abobo : Gare routière principale\n📍 Marcory : Zone 4, boulevard Valéry Giscard",
+        contact:      "Contact BSIC Bank :\n\n📞 Standard : 20-25-30-40\n📧 Email : contact@bsicbank.ci\n🆘 Urgence 24h/7j : 80-80-80-80\n💬 WhatsApp : +225 07 00 00 00",
+        comptes: {
+            menu: "Quel type de compte vous intéresse ?",
+            types: [
+                { icon: "💼", key: "compteCourant",  label: "Compte Courant",  sub: "Gratuit" },
+                { icon: "🏦", key: "compteEpargne",  label: "Compte Épargne",  sub: "3.5% d'intérêts" },
+                { icon: "🏢", key: "compteBusiness", label: "Compte Business", sub: "Sur mesure" },
+            ]
+        },
+        compteCourant:  "Compte Courant BSIC :\n\n• Frais de tenue : 0 FCFA/an\n• Carte Visa incluse\n• Virement & paiements illimités\n• Accès banque en ligne 24h/7j\n\nDocuments requis :\n• CNI valide\n• Justificatif de domicile\n• Photo d'identité récente",
+        compteEpargne:  "Compte Épargne BSIC :\n\n• Taux d'intérêt : 3.5% annuel\n• Dépôt minimum : 10 000 FCFA\n• Intérêts versés chaque semestre\n• Retraits limités à 4 par mois\n• Capital garanti à 100%",
+        compteBusiness: "Compte Business BSIC :\n\n• Dédié aux entrepreneurs & PME\n• Virements multiples simplifiés\n• Gestion de trésorerie avancée\n• Conseiller dédié\n• Conditions sur devis\n\n📞 Service entreprises : 20-25-30-40 poste 2",
+        ouvertureCompte:"Pour ouvrir un compte, rendez-vous en agence avec :\n• CNI valide (Carte Nationale d'Identité)\n• Justificatif de domicile (– de 3 mois)\n• Photo d'identité récente (format passeport)\n• Dépôt initial selon le type de compte\n\nOuverture en moins de 30 minutes ! 🎉",
+    },
+    en: {
+        cartes: {
+            intro: "Our BSIC bank cards:",
+            items: [
+                { icon: "💳", name: "Visa Classic", price: "5,000 FCFA/year", desc: "Global payments and withdrawals" },
+                { icon: "⭐", name: "Visa Gold", price: "10,000 FCFA/year", desc: "Higher limits + travel insurance" },
+                { icon: "👑", name: "Visa Platinum", price: "25,000 FCFA/year", desc: "Premium services + concierge" },
+                { icon: "🌐", name: "Virtual Card", price: "Free", desc: "Secure online purchases" },
+            ]
+        },
+        credits: {
+            menu: "Which type of loan interests you?",
+            types: [
+                { icon: "👤", key: "pretPerso",    label: "Personal Loan",   sub: "100K – 5M FCFA" },
+                { icon: "🏠", key: "pretImmo",     label: "Mortgage Loan",   sub: "5 – 25 years" },
+                { icon: "🛒", key: "pretConso",    label: "Consumer Loan",   sub: "50K – 2M FCFA" },
+                { icon: "🏢", key: "pretBusiness", label: "Business Loan",   sub: "Custom" },
+            ]
+        },
+        pretPerso:    "BSIC Bank Personal Loan:\n\nRequirements:\n• Minimum 21 years old\n• Stable income (50,000 FCFA+/month)\n• Good credit history\n• ID + proof of income\n\nRate: 8% – 12% depending on profile\nDuration: 6 months to 5 years\nAmount: 100,000 – 5,000,000 FCFA\n\nResponse within 48h.",
+        pretImmo:     "BSIC Bank Mortgage Loan:\n\nProcedure:\n1. Pre-qualification (48h)\n2. Complete file submission\n3. File review (5–7 days)\n4. Approval and fund release\n\nRequired guarantees:\n• Personal contribution 20–30%\n• Property mortgage\n• Mandatory borrower insurance\n\nRate: 6% – 9% fixed\nDuration: 5 to 25 years",
+        pretConso:    "BSIC Bank Consumer Loan:\n\n• Amount: 50,000 – 2,000,000 FCFA\n• No proof of use required\n• Duration: 3 months to 4 years\n• Fixed monthly payments\n• Early repayment available\n\nRate: 9% – 15%\nResponse within 24h",
+        pretBusiness: "BSIC Bank Business Loan:\n\n• Tailored solutions for SMEs\n• Equipment & working capital financing\n• Amount based on your file\n• Preferential rates with account domiciliation\n\nContact our business team:\n📞 20-25-30-40 ext. 2",
+        horaires:     "BSIC Bank Opening Hours:\n\n• Monday – Friday: 8:00am – 4:30pm\n• Saturday: 8:00am – 12:00pm\n• Sunday and public holidays: Closed",
+        agences:      "Our BSIC Bank Branches:\n\n📍 HQ: Plateau, Avenue Botreau Roussel\n📍 Cocody: Cocody Market, Rue des Jardins\n📍 Yopougon: SIDECI Crossroads\n📍 Abobo: Main Bus Terminal\n📍 Marcory: Zone 4, Bd Valéry Giscard",
+        contact:      "BSIC Bank Contact:\n\n📞 Phone: 20-25-30-40\n📧 Email: contact@bsicbank.ci\n🆘 Emergency 24/7: 80-80-80-80\n💬 WhatsApp: +225 07 00 00 00",
+        comptes: {
+            menu: "Which type of account interests you?",
+            types: [
+                { icon: "💼", key: "compteCourant",  label: "Current Account", sub: "Free" },
+                { icon: "🏦", key: "compteEpargne",  label: "Savings Account", sub: "3.5% interest" },
+                { icon: "🏢", key: "compteBusiness", label: "Business Account", sub: "Custom" },
+            ]
+        },
+        compteCourant:  "BSIC Current Account:\n\n• Maintenance fees: 0 FCFA/year\n• Visa card included\n• Unlimited transfers & payments\n• Online banking 24/7\n\nRequired documents:\n• Valid ID\n• Proof of address\n• Recent ID photo",
+        compteEpargne:  "BSIC Savings Account:\n\n• Interest rate: 3.5% annual\n• Minimum deposit: 10,000 FCFA\n• Interest paid every 6 months\n• Maximum 4 withdrawals/month\n• 100% guaranteed capital",
+        compteBusiness: "BSIC Business Account:\n\n• For entrepreneurs & SMEs\n• Simplified bulk transfers\n• Advanced cash management\n• Dedicated advisor\n• Custom conditions\n\n📞 Business team: 20-25-30-40 ext. 2",
+        ouvertureCompte:"To open an account, visit a branch with:\n• Valid ID card\n• Proof of address (less than 3 months old)\n• Recent passport-size photo\n• Initial deposit depending on account type\n\nOpening in less than 30 minutes! 🎉",
+    }
+};
+
+/* ================================================================
+   5. TRADUCTIONS UI
+================================================================ */
+const UI = {
+    fr: {
+        title: "Assistant BSIC AI", status: "En ligne",
+        placeholder: "Posez votre question...",
+        complaint: "Quelle est la nature de votre demande ?",
+        desc: "Décrivez brièvement la situation :",
+        name: "Votre nom et prénom ?",
+        rib: "Numéro de compte ou ID client ?",
+        contact: "Email ou numéro de téléphone ?",
+        review: "Vérifiez vos informations :",
+        labelNom: "Nom", labelCompte: "Compte", labelType: "Type", labelContact: "Contact", labelDesc: "Description",
+        final: "Réclamation enregistrée avec succès ✅\n\nVous recevrez une notification WhatsApp ou email.\n\nNuméro de ticket :",
+        confirm: "Confirmer et Envoyer",
+        botHello: "Bonjour 👋 Bienvenue chez BSIC Bank ! Je suis votre assistant intelligent.\n\nJe comprends le langage naturel — posez-moi n'importe quelle question sur nos services.",
+        error: "Je n'ai pas bien compris votre demande. Pourriez-vous reformuler ?\n\nJe peux vous aider sur : cartes, crédits, comptes, horaires, agences, contact ou réclamations.",
+        didYouMean: "Voulez-vous dire :",
+        rateLimitMsg: "Veuillez patienter quelques secondes. ⏳",
+        contextLabel: "Sujet actif :",
+        forgetBtn: "oublier",
+        confidenceLabel: "Confiance :",
+        opts: ["Plainte", "Réclamation", "Erreur Virement", "Autre demande"],
+        btnComplaint: "Réclamation", btnAccount: "Compte", btnCards: "Cartes", btnCredits: "Crédits",
+    },
+    en: {
+        title: "BSIC AI Assistant", status: "Online",
+        placeholder: "Ask a question...",
+        complaint: "What is the nature of your request?",
+        desc: "Briefly describe the situation:",
+        name: "Your full name?",
+        rib: "Account number or client ID?",
+        contact: "Email or phone number?",
+        review: "Please review your details:",
+        labelNom: "Name", labelCompte: "Account", labelType: "Type", labelContact: "Contact", labelDesc: "Description",
+        final: "Complaint successfully registered ✅\n\nYou'll receive a WhatsApp or email notification.\n\nTicket number:",
+        confirm: "Confirm and Send",
+        botHello: "Hello 👋 Welcome to BSIC Bank! I'm your intelligent assistant.\n\nI understand natural language — ask me anything about our services.",
+        error: "I didn't quite understand your request. Could you rephrase?\n\nI can help with: cards, loans, accounts, hours, branches, contact or complaints.",
+        didYouMean: "Did you mean:",
+        rateLimitMsg: "Please wait a few seconds. ⏳",
+        contextLabel: "Active topic:",
+        forgetBtn: "forget",
+        confidenceLabel: "Confidence:",
+        opts: ["Complaint", "Claim", "Transfer Error", "Other request"],
+        btnComplaint: "Complaint", btnAccount: "Account", btnCards: "Cards", btnCredits: "Loans",
+    }
+};
+
+/* ================================================================
+   6. RÈGLES D'INTENTION (intent matching NLP)
+================================================================ */
+const INTENTS = [
+    {
+        id: 'cartes',
+        keywords: ['carte','cartes','card','cards','visa','mastercard','bancaire','paiement','retrait','debit','credit card'],
+        handler: () => ({ type: 'cartes' })
+    },
+    {
+        id: 'credits',
+        keywords: ['credit','crédit','pret','prêt','emprunt','emprunter','loan','financement','finance','remboursement','mensualite','mensualité','taux','interet','intérêt','borrow'],
+        handler: (text) => {
+            const l = currentLang;
+            if (/personnel|personel|personal/i.test(text)) return { type: 'text', content: CONTENT[l].pretPerso };
+            if (/immobil|maison|logement|mortgage|house|appartement|terrain/i.test(text)) return { type: 'text', content: CONTENT[l].pretImmo };
+            if (/consommation|consumer|auto|voiture|car|moto|appareil|télé/i.test(text)) return { type: 'text', content: CONTENT[l].pretConso };
+            if (/business|entreprise|societe|société|pme|commerce/i.test(text)) return { type: 'text', content: CONTENT[l].pretBusiness };
+            return { type: 'tree', data: CONTENT[l].credits };
+        }
+    },
+    {
+        id: 'comptes',
+        keywords: ['compte','comptes','account','accounts','ouvrir','ouverture','creer','créer','creation','création','epargne','épargne','courant','current','savings','deposer','dépôt'],
+        handler: (text) => {
+            const l = currentLang;
+            if (/courant|current|quotidien/i.test(text)) return { type: 'text', content: CONTENT[l].compteCourant };
+            if (/epargn|savings|interet|intérêt/i.test(text)) return { type: 'text', content: CONTENT[l].compteEpargne };
+            if (/business|entreprise|societe|société|pme/i.test(text)) return { type: 'text', content: CONTENT[l].compteBusiness };
+            if (/ouvrir|ouverture|creer|créer|new|nouveau|open/i.test(text)) return { type: 'text', content: CONTENT[l].ouvertureCompte };
+            return { type: 'tree', data: CONTENT[l].comptes };
+        }
+    },
+    {
+        id: 'horaires',
+        keywords: ['horaire','horaires','heure','heures','hour','hours','ouverture','ouvert','ferme','fermé','fermeture','schedule','quand','when','open'],
+        handler: () => ({ type: 'text', content: CONTENT[currentLang].horaires })
+    },
+    {
+        id: 'agences',
+        keywords: ['agence','agences','branch','branches','bureau','adresse','address','localisation','location','ou','où','trouver','nearest','proche'],
+        handler: () => ({ type: 'text', content: CONTENT[currentLang].agences })
+    },
+    {
+        id: 'contact',
+        keywords: ['contact','telephone','téléphone','phone','email','mail','appeler','call','joindre','reach','numéro','numero','whatsapp','urgence'],
+        handler: () => ({ type: 'text', content: CONTENT[currentLang].contact })
+    },
+    {
+        id: 'reclamation',
+        keywords: ['reclamation','réclamation','complaint','plainte','probleme','problème','litige','erreur','error','virement','fraude','fraude','opposition','vol','perdu','bloqué','bloque'],
+        handler: () => { startComplaint(); return null; }
+    },
+    {
+        id: 'salutation',
+        keywords: ['bonjour','bonsoir','salut','hello','hi','hey','salam','bjr','bsr','good morning','good evening'],
+        handler: () => ({ type: 'text', content: UI[currentLang].botHello })
+    },
+    {
+        id: 'remerciement',
+        keywords: ['merci','thanks','thank','appreciate','parfait','super','excellent','genial','génial','bravo','nickel'],
+        handler: () => ({
+            type: 'text',
+            content: currentLang === 'fr'
+                ? "Avec plaisir ! N'hésitez pas si vous avez d'autres questions. 😊"
+                : "You're welcome! Feel free to ask if you have other questions. 😊"
+        })
+    },
+];
+
+/* ================================================================
+   7. MOTEUR DE RÉSOLUTION — NLP + Contexte + Confiance
+================================================================ */
+
+/**
+ * Résout l'intention avec score de confiance.
+ * Retourne { intent, result, confidence, suggestions }
+ */
+function resolveIntent(rawText) {
+    const text = rawText.toLowerCase();
+    const scores = [];
+
+    for (const intent of INTENTS) {
+        const score = nlpScore(text, intent.keywords);
+        scores.push({ intent, score });
+    }
+
+    // Tri par score décroissant
+    scores.sort((a, b) => b.score - a.score);
+    const best = scores[0];
+    const secondBest = scores[1];
+
+    // Seuil minimum de confiance
+    const THRESHOLD = 0.18;
+    const HIGH_CONFIDENCE = 0.55;
+
+    // Résolution contextuelle si score faible + sujet actif en mémoire
+    if (best.score < THRESHOLD && MEMORY.currentTopic) {
+        const ctx = MEMORY.currentTopic;
+        const ctxIntent = INTENTS.find(i => i.id === ctx);
+        if (ctxIntent && MEMORY.isFollowUp(text)) {
+            const result = ctxIntent.handler(text);
+            return { intent: ctx, result, confidence: 0.6, suggestions: [], isContextual: true };
+        }
+    }
+
+    if (best.score < THRESHOLD) {
+        // Score trop faible — proposer des suggestions
+        const suggestions = scores
+            .filter(s => s.score > 0.08 && s.score < THRESHOLD)
+            .slice(0, 3)
+            .map(s => s.intent.id);
+        return { intent: null, result: null, confidence: best.score, suggestions };
+    }
+
+    const result = best.intent.handler(text);
+    const confidence = best.score;
+
+    // Suggestions si l'écart entre 1er et 2ème est faible (ambiguïté)
+    const suggestions = [];
+    if (secondBest && (best.score - secondBest.score) < 0.12 && secondBest.score > THRESHOLD * 0.7) {
+        suggestions.push(secondBest.intent.id);
+    }
+
+    return { intent: best.intent.id, result, confidence, suggestions };
+}
+
+/* ================================================================
+   8. ÉTAT DE L'APPLICATION
+================================================================ */
+let currentLang = 'fr';
+let isFormActive = false;
+let formStep = '';
+let formData = {};
+
+// Rate limiting
+let msgTimestamps = [];
+function isRateLimited() {
+    const now = Date.now();
+    msgTimestamps = msgTimestamps.filter(t => now - t < 3000);
+    if (msgTimestamps.length >= 4) return true;
+    msgTimestamps.push(now);
+    return false;
+}
+
+/* ================================================================
+   9. INTERFACE — BARRE DE CONFIANCE & CONTEXTE
+================================================================ */
+function updateConfidenceBar(score) {
+    const pct = Math.round(score * 100);
+    const fill = document.getElementById('conf-fill');
+    const scoreEl = document.getElementById('conf-score');
+    fill.style.width = pct + '%';
+    fill.style.backgroundColor =
+        pct >= 70 ? '#22c55e' :
+        pct >= 40 ? '#f59e0b' : '#ef4444';
+    scoreEl.textContent = pct + '%';
+    scoreEl.style.color =
+        pct >= 70 ? '#15803d' :
+        pct >= 40 ? '#b45309' : '#b91c1c';
+}
+
+function updateContextPill(intentId) {
+    const pill = document.getElementById('context-pill');
+    const ctxText = document.getElementById('ctx-text');
+    if (!intentId) {
+        pill.classList.remove('visible');
+        return;
+    }
+    const labels = {
+        fr: { cartes:'Cartes bancaires', credits:'Crédits & prêts', comptes:'Comptes', horaires:'Horaires', agences:'Agences', contact:'Contact', reclamation:'Réclamation' },
+        en: { cartes:'Bank cards', credits:'Loans', comptes:'Accounts', horaires:'Hours', agences:'Branches', contact:'Contact', reclamation:'Complaint' }
+    };
+    const label = (labels[currentLang] || labels.fr)[intentId];
+    if (label) {
+        ctxText.textContent = UI[currentLang].contextLabel + ' ' + label;
+        pill.classList.add('visible');
+    }
+}
+
+/* ================================================================
+   10. DOM — CONSTRUCTION DES MESSAGES
+================================================================ */
+function addMessage(text, sender, special = null, extra = null) {
+    const container = document.getElementById('chat-container');
+    const MAX = 80;
+    while (container.children.length >= MAX) container.removeChild(container.firstChild);
+
+    const row = document.createElement('div');
+    row.className = 'msg-row ' + sender;
+    const bubble = document.createElement('div');
+    bubble.className = 'bubble ' + sender;
+
+    if (special === 'summary') {
+        bubble.appendChild(buildSummaryDOM());
+    } else if (special === 'cartes') {
+        bubble.appendChild(buildCartesDOM(extra));
+    } else if (special === 'tree') {
+        bubble.appendChild(buildTreeDOM(extra));
+    } else {
+        const textNode = document.createElement('div');
+        textNode.className = 'bubble-text';
+        textNode.textContent = text;
+        bubble.appendChild(textNode);
+        // Suggestions "voulez-vous dire ?" après le texte
+        if (special === 'didyoumean' && extra && extra.length > 0) {
+            bubble.appendChild(buildDidYouMeanDOM(extra));
+        }
+    }
+
+    if (special === 'options') bubble.appendChild(buildOptionsDOM());
+
+    row.appendChild(bubble);
+    container.appendChild(row);
+    requestAnimationFrame(() => { container.scrollTop = container.scrollHeight; });
+    return row;
+}
+
+/** Indicateur de frappe animé */
+function showTyping() {
+    const container = document.getElementById('chat-container');
+    const row = document.createElement('div');
+    row.className = 'msg-row bot';
+    row.id = 'typing-indicator';
+    const bubble = document.createElement('div');
+    bubble.className = 'bubble bot';
+    const ind = document.createElement('div');
+    ind.className = 'typing-indicator';
+    for (let i = 0; i < 3; i++) {
+        const d = document.createElement('div');
+        d.className = 'typing-dot';
+        ind.appendChild(d);
+    }
+    bubble.appendChild(ind);
+    row.appendChild(bubble);
+    container.appendChild(row);
+    requestAnimationFrame(() => { container.scrollTop = container.scrollHeight; });
+}
+
+function hideTyping() {
+    const el = document.getElementById('typing-indicator');
+    if (el) el.remove();
+}
+
+/** Widget cartes bancaires */
+function buildCartesDOM(data) {
+    const wrapper = document.createElement('div');
+    const intro = document.createElement('div');
+    intro.className = 'bubble-text';
+    intro.style.marginBottom = '0.75rem';
+    intro.textContent = data.intro;
+    wrapper.appendChild(intro);
+    data.items.forEach(item => {
+        const card = document.createElement('div');
+        card.style.cssText = 'display:flex;gap:0.6rem;align-items:flex-start;padding:0.5rem;border-radius:0.5rem;background:#f8fafc;border:1px solid #f1f5f9;margin-bottom:0.4rem;';
+        const icon = document.createElement('span');
+        icon.style.fontSize = '1.2rem';
+        icon.textContent = item.icon;
+        const info = document.createElement('div');
+        info.style.flex = '1';
+        const name = document.createElement('div');
+        name.style.cssText = 'font-weight:700;font-size:0.8rem;color:#1e293b;';
+        name.textContent = item.name;
+        const price = document.createElement('div');
+        price.style.cssText = 'font-size:0.7rem;color:#2563eb;font-weight:700;';
+        price.textContent = item.price;
+        const desc = document.createElement('div');
+        desc.style.cssText = 'font-size:0.68rem;color:#6b7280;';
+        desc.textContent = item.desc;
+        info.appendChild(name); info.appendChild(price); info.appendChild(desc);
+        card.appendChild(icon); card.appendChild(info);
+        wrapper.appendChild(card);
+    });
+    return wrapper;
+}
+
+/** Arbre de décision interactif */
+function buildTreeDOM(data) {
+    const wrapper = document.createElement('div');
+    wrapper.className = 'decision-tree';
+    const title = document.createElement('div');
+    title.className = 'tree-title';
+    title.textContent = data.menu;
+    wrapper.appendChild(title);
+    const grid = document.createElement('div');
+    grid.className = 'tree-grid';
+    data.types.forEach(item => {
+        const btn = document.createElement('button');
+        btn.className = 'tree-btn';
+        btn.setAttribute('type', 'button');
+        const icon = document.createElement('span');
+        icon.className = 'tree-icon';
+        icon.textContent = item.icon;
+        const label = document.createElement('div');
+        label.className = 'tree-label';
+        const lname = document.createElement('div');
+        lname.style.cssText = 'font-size:0.75rem;font-weight:700;';
+        lname.textContent = item.label;
+        const sub = document.createElement('div');
+        sub.style.cssText = 'font-size:0.65rem;color:#6b7280;font-weight:500;';
+        sub.textContent = item.sub;
+        label.appendChild(lname); label.appendChild(sub);
+        const arrow = document.createElement('span');
+        arrow.className = 'tree-arrow';
+        arrow.textContent = '›';
+        btn.appendChild(icon); btn.appendChild(label); btn.appendChild(arrow);
+        btn.addEventListener('click', () => sendQuickMsg(item.label));
+        grid.appendChild(btn);
+    });
+    wrapper.appendChild(grid);
+    return wrapper;
+}
+
+/** Suggestions "Voulez-vous dire ?" */
+function buildDidYouMeanDOM(intentIds) {
+    const LABELS = {
+        fr: { cartes:'Cartes bancaires', credits:'Crédits', comptes:'Comptes', horaires:'Horaires', agences:'Agences', contact:'Contact', reclamation:'Réclamation', salutation:'Bonjour', remerciement:'Merci' },
+        en: { cartes:'Bank cards', credits:'Loans', comptes:'Accounts', horaires:'Hours', agences:'Branches', contact:'Contact', reclamation:'Complaint', salutation:'Hello', remerciement:'Thanks' }
+    };
+    const labels = LABELS[currentLang] || LABELS.fr;
+    const wrapper = document.createElement('div');
+    wrapper.className = 'did-you-mean';
+    const label = document.createElement('div');
+    label.className = 'dym-label';
+    label.textContent = UI[currentLang].didYouMean;
+    wrapper.appendChild(label);
+    const btns = document.createElement('div');
+    btns.className = 'dym-btns';
+    intentIds.forEach(id => {
+        const l = labels[id];
+        if (!l) return;
+        const btn = document.createElement('button');
+        btn.className = 'dym-btn';
+        btn.setAttribute('type', 'button');
+        btn.textContent = l;
+        btn.addEventListener('click', () => sendQuickMsg(l));
+        btns.appendChild(btn);
+    });
+    wrapper.appendChild(btns);
+    return wrapper;
+}
+
+/** Résumé réclamation */
+function buildSummaryDOM() {
+    const lang = UI[currentLang];
+    const wrapper = document.createElement('div');
+    
+    // Titre avec icône
+    const title = document.createElement('div');
+    title.className = 'summary-title';
+    title.textContent = lang.review;
+    wrapper.appendChild(title);
+    
+    // Corps du résumé
+    const body = document.createElement('div');
+    body.className = 'summary-body';
+    
+    // Champs du formulaire
+    const fields = [
+        { label: lang.labelNom, value: formData.name },
+        { label: lang.labelCompte, value: formData.rib },
+        { label: lang.labelType, value: formData.type },
+        { label: lang.labelContact, value: formData.contact }
+    ];
+    
+    fields.forEach(field => {
+        const fieldDiv = document.createElement('div');
+        fieldDiv.className = 'summary-field';
+        
+        const label = document.createElement('span');
+        label.className = 'summary-label';
+        label.textContent = field.label + ' :';
+        
+        const value = document.createElement('span');
+        value.className = 'summary-value';
+        value.textContent = field.value;
+        
+        fieldDiv.appendChild(label);
+        fieldDiv.appendChild(value);
+        body.appendChild(fieldDiv);
+    });
+    
+    // Description
+    const desc = document.createElement('div');
+    desc.className = 'summary-desc';
+    desc.textContent = `"${formData.desc}"`;
+    body.appendChild(desc);
+    
+    wrapper.appendChild(body);
+    
+    // Bouton de confirmation
+    const btn = document.createElement('button');
+    btn.className = 'confirm-btn';
+    btn.textContent = lang.confirm;
+    btn.setAttribute('type', 'button');
+    btn.addEventListener('click', finalizeComplaint);
+    wrapper.appendChild(btn);
+    
+    return wrapper;
+}
+
+/** Options réclamation */
+function buildOptionsDOM() {
+    const opts = UI[currentLang].opts;
+    const container = document.createElement('div');
+    container.className = 'opts-container';
+    
+    // Icônes pour chaque type de réclamation
+    const icons = {
+        'Plainte': '⚠️',
+        'Réclamation': '📝',
+        'Erreur Virement': '💸',
+        'Autre demande': '💬',
+        'Complaint': '⚠️',
+        'Claim': '📝',
+        'Transfer Error': '💸',
+        'Other request': '💬'
+    };
+    
+    opts.forEach(o => {
+        const btn = document.createElement('button');
+        btn.className = 'opt-btn';
+        btn.setAttribute('type', 'button');
+        
+        // Créer le contenu avec icône et texte
+        const content = document.createElement('span');
+        content.innerHTML = `${icons[o] || '📋'} ${o}`;
+        btn.appendChild(content);
+        
+        // Animation d'entrée progressive
+        btn.style.opacity = '0';
+        btn.style.transform = 'translateY(10px)';
+        container.appendChild(btn);
+        
+        // Animation d'entrée avec délai
+        setTimeout(() => {
+            btn.style.transition = 'all 0.3s ease';
+            btn.style.opacity = '1';
+            btn.style.transform = 'translateY(0)';
+        }, opts.indexOf(o) * 100);
+        
+        btn.addEventListener('click', () => sendQuickMsg(o));
+    });
+    return container;
+}
+
+/* ================================================================
+   11. LOGIQUE FORMULAIRE RÉCLAMATION
+================================================================ */
+function startComplaint() {
+    isFormActive = true; formStep = 'TYPE'; formData = {};
+    addMessage(UI[currentLang].complaint, 'bot', 'options');
+}
+
+function processForm(val) {
+    switch (formStep) {
+        case 'TYPE':    formData.type    = val; formStep = 'DESC';    addMessage(UI[currentLang].desc, 'bot'); break;
+        case 'DESC':    formData.desc    = val; formStep = 'NAME';    addMessage(UI[currentLang].name, 'bot'); break;
+        case 'NAME':    formData.name    = val; formStep = 'RIB';     addMessage(UI[currentLang].rib, 'bot'); break;
+        case 'RIB':     formData.rib     = val; formStep = 'CONTACT'; addMessage(UI[currentLang].contact, 'bot'); break;
+        case 'CONTACT': formData.contact = val; formStep = 'REVIEW';  addMessage('', 'bot', 'summary'); break;
+    }
+}
+
+function finalizeComplaint() {
+    const tid = generateTicketId();
+    addMessage(UI[currentLang].final + ' ' + tid, 'bot');
+    isFormActive = false; formStep = ''; formData = {};
+    MEMORY.push('bot', 'complaint_done', null);
+}
+
+/* ================================================================
+   12. ENVOI ET TRAITEMENT DES MESSAGES
+================================================================ */
+function sendQuickMsg(rawVal) {
+    const val = sanitizeUserInput(rawVal);
+    if (!val) return;
+    if (isRateLimited()) { addMessage(UI[currentLang].rateLimitMsg, 'bot'); return; }
+
+    addMessage(val, 'user');
+    MEMORY.push('user', val, null);
+
+    showTyping();
+
+    // Délai réaliste selon la longueur
+    const delay = 400 + Math.min(val.length * 8, 800);
+
+    setTimeout(() => {
+        hideTyping();
+        if (isFormActive) {
+            processForm(val);
+            return;
+        }
+        processMessage(val);
+    }, delay);
+}
+
+function processMessage(val) {
+    // Essayer d'envoyer au backend d'abord
+    if (sendMessageToBackend(val)) {
+        // Message envoyé au backend, la réponse sera gérée par WebSocket
+        return;
+    }
+    
+    // Fallback vers le NLP local si backend indisponible
+    const { intent, result, confidence, suggestions, isContextual } = resolveIntent(val);
+
+    updateConfidenceBar(confidence);
+    updateContextPill(intent);
+
+    if (intent) MEMORY.push('bot', '', intent);
+
+    // Aucune intention détectée
+    if (!intent || !result) {
+        const msg = addMessage(UI[currentLang].error, 'bot',
+            suggestions.length > 0 ? 'didyoumean' : null, suggestions);
+        return;
+    }
+
+    // Dispatch selon le type de résultat
+    switch (result.type) {
+        case 'text':
+            addMessage(result.content, 'bot');
+            break;
+        case 'cartes':
+            addMessage('', 'bot', 'cartes', CONTENT[currentLang].cartes);
+            break;
+        case 'tree':
+            addMessage('', 'bot', 'tree', result.data);
+            break;
+        default:
+            if (result !== null) addMessage(String(result), 'bot');
+    }
+
+    // Si le bot a résolu grâce au contexte, le mentionner subtilement
+    if (isContextual) {
+        const hint = currentLang === 'fr'
+            ? '(réponse basée sur notre sujet précédent 🧠)'
+            : '(answer based on our previous topic 🧠)';
+        // Ajouter une petite note sous la bulle précédente via texte discret
+        const container = document.getElementById('chat-container');
+        const note = document.createElement('div');
+        note.style.cssText = 'font-size:0.6rem;color:#94a3b8;text-align:left;padding-left:0.5rem;margin-top:-0.5rem;';
+        note.textContent = hint;
+        container.appendChild(note);
+    }
+}
+
+/* ================================================================
+   13. CHANGEMENT DE LANGUE
+================================================================ */
+function toggleLang() {
+    currentLang = currentLang === 'fr' ? 'en' : 'fr';
+    const ui = UI[currentLang];
+    document.getElementById('current-lang').textContent = currentLang.toUpperCase();
+    document.getElementById('ui-title').textContent = ui.title;
+    document.getElementById('ui-status').textContent = ui.status;
+    document.getElementById('user-input').placeholder = ui.placeholder;
+    document.getElementById('conf-label-text').textContent = ui.confidenceLabel;
+    document.getElementById('btn-complaint-label').textContent = ui.btnComplaint;
+    document.getElementById('btn-account-label').textContent = ui.btnAccount;
+    document.getElementById('btn-cards-label').textContent = ui.btnCards;
+    document.getElementById('btn-credits-label').textContent = ui.btnCredits;
+    document.getElementById('ctx-clear-btn').textContent = '✕ ' + ui.forgetBtn;
+    MEMORY.clear();
+    updateContextPill(null);
+    updateConfidenceBar(0);
+    addMessage(ui.botHello, 'bot');
+}
+
+/* ================================================================
+   14. INITIALISATION
+================================================================ */
+document.addEventListener('DOMContentLoaded', async () => {
+    // Initialiser la connexion au backend
+    const backendConnected = await initializeBackendConnection();
+    
+    // Message de bienvenue
+    addMessage(UI[currentLang].botHello, 'bot');
+    document.getElementById('user-input').placeholder = UI[currentLang].placeholder;
+
+    // Événements UI
+    document.getElementById('lang-btn').addEventListener('click', toggleLang);
+    document.getElementById('btn-complaint').addEventListener('click', startComplaint);
+    document.getElementById('btn-account').addEventListener('click', () => sendQuickMsg('Ouvrir un compte'));
+    document.getElementById('btn-cards').addEventListener('click', () => sendQuickMsg('Cartes bancaires'));
+    document.getElementById('btn-credits').addEventListener('click', () => sendQuickMsg('Crédits'));
+
+    document.getElementById('ctx-clear-btn').addEventListener('click', () => {
+        MEMORY.clear();
+        updateContextPill(null);
+    });
+
+    document.getElementById('chat-form').addEventListener('submit', (e) => {
+        e.preventDefault();
+        const input = document.getElementById('user-input');
+        const val = sanitizeUserInput(input.value);
+        if (!val) return;
+        input.value = '';
+        sendQuickMsg(val);
+    });
+
+    // Indicateur de connexion backend
+    if (backendConnected) {
+        console.log('✅ Backend connected - Using server-side NLP');
+    } else {
+        console.log('⚠️ Backend unavailable - Using local NLP fallback');
+        addMessage(currentLang === 'fr' 
+            ? '🔄 Connexion au serveur indisponible. Mode local activé.' 
+            : '🔄 Server connection unavailable. Local mode activated.', 'bot');
+    }
+
+    // Valider le score initial à 0
+    updateConfidenceBar(0);
+});
+</script>
+</body>
+</html>
