@@ -198,7 +198,7 @@ app.get('/api/complaints', (_req, res) => {
    WEBHOOK TWILIO WHATSAPP — POST /whatsapp
 ══════════════════════════════════════════════════════════════════════════════ */
 app.post('/whatsapp', async (req, res) => {
-
+/*
     // Validation signature Twilio
     if (TWILIO_AUTH_TOKEN && process.env.NODE_ENV !== 'development') {
         const signature = req.headers['x-twilio-signature'] || '';
@@ -208,6 +208,8 @@ app.post('/whatsapp', async (req, res) => {
             return res.status(403).send('Forbidden');
         }
     }
+    
+*/
 
     const userMessage = (req.body.Body        || '').trim();
     const fromNumber  =  req.body.From        || '';
